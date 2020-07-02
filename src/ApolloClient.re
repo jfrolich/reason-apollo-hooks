@@ -1,9 +1,12 @@
-module Mutation = ApolloClient_Mutation;
-module Query = ApolloClient_Query;
-module Provider = ApolloClient_Provider;
-module Subscription = ApolloClient_Subscription;
 module Client = ApolloClient_Client;
+module Consumer = ApolloClient_Consumer;
+module HooksClient = ApolloClient_HooksClient;
+module InMemoryCache = ApolloClient_InMemoryCache;
 module Link = ApolloClient_ApolloLink;
+module Mutation = ApolloClient_Mutation;
+module Provider = ApolloClient_Provider;
+module Query = ApolloClient_Query;
+module Subscription = ApolloClient_Subscription;
 
 /**
   This is probably the one hook you'll use the most. A quick demo:
