@@ -12,38 +12,30 @@ Reason bindings for the official [@apollo/react-hooks](https://www.npmjs.com/pac
 
 - [reason-apollo-hooks](#reason-apollo-hooks)
   - [Table of contents](#table-of-contents)
-  - [Installation :arrow_up:](#installation-arrowup)
-  - [Setting up :arrow_up:](#setting-up-arrowup)
-    - [Usage with reason-apollo :arrow_up:](#usage-with-reason-apollo-arrowup)
-  - [Available hooks :arrow_up:](#available-hooks-arrowup)
-    - [useQuery :arrow_up:](#usequery-arrowup)
-    - [useMutation :arrow_up:](#usemutation-arrowup)
-    - [useSubscription :arrow_up:](#usesubscription-arrowup)
-  - [Cache :arrow_up:](#cache-arrowup)
+  - [Installation :arrow_up:](#installation-arrow_up)
+  - [Setting up :arrow_up:](#setting-up-arrow_up)
+  - [Available hooks :arrow_up:](#available-hooks-arrow_up)
+    - [useQuery :arrow_up:](#usequery-arrow_up)
+    - [useMutation :arrow_up:](#usemutation-arrow_up)
+    - [useSubscription :arrow_up:](#usesubscription-arrow_up)
+  - [Cache :arrow_up:](#cache-arrow_up)
   - [Getting it running](#getting-it-running)
-  - [Contributors ✨](#contributors-%e2%9c%a8)
+  - [Contributors ✨](#contributors-)
 
 ## Installation [:arrow_up:](#table-of-contents)
 
-```
-yarn add reason-apollo-hooks reason-apollo@0.19.0 @apollo/react-hooks
-```
-
-BuckleScript <= 5.0.0
-
-```
-yarn add reason-apollo-hooks@3.0.0 reason-apollo@0.17.0 @apollo/react-hooks
+```sh
+yarn add reason-apollo-hooks @apollo/react-hooks @apollo/link-context @apollo/link-error @apollo-upload-client graphql-tag
 ```
 
-Follow the installation instructions of [graphql_ppx_re](https://github.com/baransu/graphql_ppx_re).
+Follow the installation instructions of [@reasonml-community/graphql-ppx](https://github.com/reasonml-community/graphql-ppx).
 
 Then update your bsconfig.json
 
 ```diff
 "bs-dependencies": [
   ...
-+ "reason-apollo-hooks",
-+ "reason-apollo"
++ "reason-apollo-hooks"
 ]
 ```
 
@@ -53,36 +45,22 @@ Add the provider in the top of the tree
 
 ```reason
 /* Create an InMemoryCache */
-let inMemoryCache = ApolloInMemoryCache.createInMemoryCache();
+let inMemoryCache = ApolloClient.InMemoryCache.createInMemoryCache();
 
 /* Create an HTTP Link */
 let httpLink =
-  ApolloLinks.createHttpLink(~uri="http://localhost:3010/graphql", ());
+  ApolloClient.Link.HttpLink.createHttpLink(~uri="http://localhost:3010/graphql", ());
 
 let client =
-  ReasonApollo.createApolloClient(~link=httpLink, ~cache=inMemoryCache, ());
+  ApolloClient.Client.createApolloClientJS({
+    link: httpLink,
+    cache: inMemoryCache
+  });
 
 let app =
- <ApolloHooks.Provider client>
-   ...
- </ApolloHooks.Provider>
-```
-
-### Usage with reason-apollo [:arrow_up:](#table-of-contents)
-
-To use with `reason-apollo`'s `ReasonApollo.Provider` already present in your project:
-
-```reason
-let client = ... // create Apollo client
-
-ReactDOMRe.renderToElementWithId(
-  <ReasonApollo.Provider client>
-    <ApolloHooks.Provider client>
-      <App />
-    </ApolloHooks.Provider>
-  </ReasonApollo.Provider>,
-  "root",
-);
+  <ApolloClient.Provider client>
+    ...
+  </ApolloClient.Provider>;
 ```
 
 ## Available hooks [:arrow_up:](#table-of-contents)
@@ -90,7 +68,7 @@ ReactDOMRe.renderToElementWithId(
 ### useQuery [:arrow_up:](#table-of-contents)
 
 ```reason
-open ApolloHooks
+open ApolloClient;
 
 module UserQuery = [%graphql {|
   query UserQuery {
@@ -103,38 +81,20 @@ module UserQuery = [%graphql {|
 [@react.component]
 let make = () => {
   /* Both variant and records available */
-  let (simple, _full) = useQuery(UserQuery.definition);
+  let result = useQuery(~variables=(), (module UserQuery));
 
   <div>
   {
-    switch(simple) {
-      | Loading => <p>{React.string("Loading...")}</p>
-      | Data(data) =>
-        <p>{React.string(data##currentUser##name)}</p>
-      | NoData
-      | Error(_) => <p>{React.string("Get off my lawn!")}</p>
-    }
-  }
-  </div>
-}
-```
-
-Using the `full` record for more advanced cases
-
-```reason
-[@react.component]
-let make = () => {
-  /* Both variant and records available */
-  let (_simple, full) = useQuery(UserQuery.definition);
-
-  <div>
-  {
-    switch(full) {
-      | { loading: true }=> <p>{React.string("Loading...")}</p>
-      | { data: Some(data) } =>
-        <p>{React.string(data##currentUser##name)}</p>
-      | any other possibilities =>
-      | { error: Some(_) } => <p>{React.string("Get off my lawn!")}</p>
+    switch(
+      result.loading,
+      result.error,
+      result.data
+    ) {
+    | (true, _, _) => <p>{React.string("Loading...")}</p>
+    | (false, _, Some(data)) =>
+      <p>{React.string(data.currentUser.name)}</p>
+    | (false, _, None)
+    | (false, Some(_), _) => <p>{React.string("Get off my lawn!")}</p>
     }
   }
   </div>
@@ -144,13 +104,13 @@ let make = () => {
 Using `fetchPolicy` to change interactions with the `apollo` cache, see [apollo docs](https://www.apollographql.com/docs/react/api/react-apollo/#optionsfetchpolicy).
 
 ```reason
-let (_simple, full) = useQuery(~fetchPolicy=NetworkOnly, UserQuery.definition);
+let result = useQuery(~fetchPolicy=NetworkOnly, (module UserQuery));
 ```
 
 Using `errorPolicy` to change how errors are handled, see [apollo docs](https://www.apollographql.com/docs/react/api/react-apollo/#optionserrorpolicy).
 
 ```reason
-let (simple, _full) = useQuery(~errorPolicy=All, UserQuery.definition);
+let result = useQuery(~errorPolicy=All, (module UserQuery));
 ```
 
 Using `skip` to skip query entirely, see [apollo docs](https://www.apollographql.com/docs/react/api/react-apollo/#configskip).
@@ -163,13 +123,15 @@ let (simple, _full) =
       | None => true
       | _ => false
       },
-    UserQuery.definition,
+    (module UserQuery),
   );
 ```
 
 ### useMutation [:arrow_up:](#table-of-contents)
 
 ```reason
+open ApolloClient;
+
 module ScreamMutation = [%graphql {|
   mutation ScreamMutation($screamLevel: Int!) {
     scream(level: $screamLevel) {
@@ -181,19 +143,22 @@ module ScreamMutation = [%graphql {|
 [@react.component]
 let make = () => {
   /* Both variant and records available */
-  let ( screamMutation, _simple, _full ) = useMutation(~variables=ScreamMutation.makeVariables(~screamLevel=10, ()), ScreamMutation.definition);
-  let scream = (_) => {
-    screamMutation()
-      |> Js.Promise.then_(result => {
-          switch(result) {
-            | Data(data) => ...
-            | Error(error) => ...
-            | NoData => ...
-          }
-          Js.Promise.resolve()
-        })
-      |> ignore
-  }
+  let (screamMutation, result) =
+    useMutationWithVariables(
+      ~variables=ScreamMutation.makeVariables(~screamLevel=10, ()),
+      (module ScreamMutation),
+    );
+
+  let scream = _ => {
+    screamMutation();
+
+    switch(result.loading, result.error, result.data) {
+    | (false, _, Some(data)) => ...
+    | (false, Some(error), _) => ...
+    | (false, _, None) => ...
+    | (true, _, _) => ...
+    ;
+  };
 
   <div>
     <button onClick={scream}>
@@ -206,22 +171,25 @@ let make = () => {
 If you don't know the value of the variables yet you can pass them in later
 
 ```reason
+open ApolloClient;
+
 [@react.component]
 let make = () => {
   /* Both variant and records available */
-  let ( screamMutation, _simple, _full ) = useMutation(ScreamMutation.definition);
+  let (screamMutation, result) = useMutation((module ScreamMutation));
+
   let scream = (_) => {
-    screamMutation(~variables=ScreamMutation.makeVariables(~screamLevel=10, ()), ())
-      |> Js.Promise.then_(result => {
-          switch(result) {
-            | Data(data) => ...
-            | Error(error) => ...
-            | NoData => ...
-          }
-          Js.Promise.resolve()
-        })
-      |> ignore
-  }
+    screamMutation(ScreamMutation.makeVariables(
+      ~screamLevel=10, ()
+    ))
+
+    switch(result.loading, result.error, result.data) {
+    | (false, _, Some(data)) => ...
+    | (false, Some(error), _) => ...
+    | (false, _, None) => ...
+    | (true, _, _) => ...
+    ;
+  };
 
   <div>
     <button onClick={scream}>
@@ -245,7 +213,7 @@ let httpLink =
 +
 +/* Create a WS Link */
 +let webSocketLink =
-+  ApolloLinks.webSocketLink({
++  ApolloClient.Link.webSocketLink({
 +    uri: "wss://localhost:3010/graphql",
 +    options: {
 +      reconnect: true,
@@ -256,7 +224,7 @@ let httpLink =
 +/* Using the ability to split links, you can send data to each link
 +   depending on what kind of operation is being sent */
 +let link =
-+  ApolloLinks.split(
++  ApolloClient.Link.split(
 +    operation => {
 +      let operationDefition =
 +        ApolloUtilities.getMainDefinition(operation.query);
@@ -268,18 +236,20 @@ let httpLink =
 +  );
 
 let client =
--  ReasonApollo.createApolloClient(~link=httpLink, ~cache=inMemoryCache, ());
-+  ReasonApollo.createApolloClient(~link, ~cache=inMemoryCache, ());
+-  ApolloClient.createApolloClient(~link=httpLink, ~cache=inMemoryCache, ());
++  ApolloClient.createApolloClient(~link, ~cache=inMemoryCache, ());
 
 let app =
- <ApolloHooks.Provider client>
+ <ApolloClient.Provider client>
    ...
- </ApolloHooks.Provider>
+ </ApolloClient.Provider>
 ```
 
 Then, you can implement `useSubscription` in a similar manner to `useQuery`
 
 ```reason
+open ApolloClient;
+
 module UserAdded = [%graphql {|
   subscription userAdded {
     userAdded {
@@ -289,15 +259,16 @@ module UserAdded = [%graphql {|
   }
 |}];
 
-
 [@react.component]
 let make = () => {
-  let (userAddedSubscription, _full) = ApolloHooks.useSubscription(UserAdded.definition);
+  let result = useSubscription((module UserAdded));
 
-  switch (userAddedSubscription) {
-    | Loading => <div> {ReasonReact.string("Loading")} </div>
-    | Error(error) => <div> {ReasonReact.string(error##message)} </div>
-    | Data(_response) =>
+  switch (result.loading, result.error, result.data) {
+    | (true, _, _) => <div> {ReasonReact.string("Loading")} </div>
+    | (false, Some(error), _) =>
+      <div> {ReasonReact.string(error.message)} </div>
+    | (false, _, None) => ReasonReact.null
+    | (false, _, Some(_response)) =>
       <audio autoPlay=true>
       <source src="notification.ogg" type_="audio/ogg" />
       <source src="notification.mp3" type_="audio/mpeg" />
@@ -309,8 +280,6 @@ let make = () => {
 ## Cache [:arrow_up:](#table-of-contents)
 
 There are a couple of caveats with manual cache updates.
-
-**TL;DR**
 
 1. If you need to remove items from cached data, it is enough to just filter them out and save the result into cache as is.
 2. If you need to add the result of a mutation to a list of items with the same shape, you simply concat it with the list and save into cache as it.
@@ -338,7 +307,7 @@ external cast: Js.Json.t => PersonsQuery.t = "%identity";
 
 let updatePersons = (~client, ~name, ~age) => {
   let query = PersonsQuery.make();
-  let readQueryOptions = ApolloHooks.Utils.toReadQueryOptions(query);
+  let readQueryOptions = ApolloClient.Utils.toReadQueryOptions(query);
 
   // can throw exception of cache is empty
   switch (PersonsReadQuery.readQuery(client, readQueryOptions)) {
@@ -354,15 +323,15 @@ let updatePersons = (~client, ~name, ~age) => {
       // to remove items, simply filter them out
       let updatedPersons = {
         "allPersons":
-          Belt.Array.keep(persons##allPersons, person => person##age !== age),
+          Belt.Array.keep(persons.allPersons, person => person.age !== age),
       };
 
       // when updating items, __typename must be preserved, but since it is not a record,
       // can't use spread, so use JS to update items
       let updatedPersons = {
         "allPersons":
-          Belt.Array.map(persons##allPersons, person =>
-            person##name === name ? [%bs.raw {| {...person, age } |}] : person
+          Belt.Array.map(persons.allPersons, person =>
+            person.name === name ? [%bs.raw {| {...person, age } |}] : person
           ),
       };
 
